@@ -1,6 +1,7 @@
 const express = require('express');
 const {
     overviewStats,
+    overviewStatsNew,
     chargebackStats,
     refundStats,
     disputeList,
@@ -14,7 +15,9 @@ const authentication = require('../middlewares/authentication');
 const router = express.Router();
 
 // Overview
-router.get('/:tenantId/overview', authentication, overviewStats);
+// router.get('/:tenantId/overview', authentication, overviewStats);
+// Overview v2
+router.get('/:tenantId/overview', authentication, overviewStatsNew);
 
 // Chargebacks
 router.get('/:tenantId/chargebacks', authentication, chargebackStats);

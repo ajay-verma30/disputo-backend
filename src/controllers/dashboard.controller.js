@@ -1,5 +1,6 @@
 const {
     getOverviewStats,
+    getNewOverviewStats,
     getChargebackStats,
     getRefundStats,
     getDisputeList,
@@ -12,6 +13,15 @@ const {
 const overviewStats = async (req, res) => {
     try {
         const data = await getOverviewStats(req.params.tenantId);
+        res.status(200).json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+const overviewStatsNew = async (req, res) => {
+    try {
+        const data = await getNewOverviewStats(req.params.tenantId);
         res.status(200).json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -93,6 +103,7 @@ const revenueChart = async (req, res) => {
 
 module.exports = {
     overviewStats,
+    overviewStatsNew,
     chargebackStats,
     refundStats,
     disputeList,

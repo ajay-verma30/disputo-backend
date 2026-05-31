@@ -69,6 +69,150 @@ const getOverviewStats = async (tenantId) => {
     return stats;
 };
 
+
+const getNewOverviewStats = async (tenantId) => {
+    const { rows } = await pool.query(
+        `
+        SELECT
+            -- Revenue
+            COALESCE(SUM(p.amount) FILTER (
+                WHERE p.status = 'succeeded'
+            ), 0) AS total_revenue,
+
+            -- Refund Amount
+            COALESCE((
+                SELECT SUM(r.amount)
+                FROM refunds r
+                WHERE r.tenant_id = $1
+            ), 0) AS total_refunded,
+
+            -- Disputed Amount
+            COALESCE((
+                SELECT SUM(d.amount)
+                FROM disputes d
+                WHERE d.tenant_id = $1
+            ), 0) AS total_disputed_amount,
+
+            -- Amount Saved
+            COALESCE((
+                SELECT SUM(d.amount)
+                FROM disputes d
+                WHERE d.tenant_id = $1
+                  AND d.status = 'won'
+            ), 0) AS amount_saved_from_disputes,
+
+            -- Amount Lost
+            COALESCE((
+                SELECT SUM(d.amount)
+                FROM disputes d
+                WHERE d.tenant_id = $1
+                  AND d.status = 'lost'
+            ), 0) AS amount_lost_from_disputes,
+
+            -- Payments
+            COUNT(*) FILTER (
+                WHERE p.status = 'succeeded'
+            ) AS successful_payments,
+
+            COUNT(*) FILTER (
+                WHERE p.status = 'failed'
+            ) AS failed_payments,
+
+            -- Customers
+            (
+                SELECT COUNT(*)
+                FROM customers c
+                WHERE c.tenant_id = $1
+            ) AS total_customers,
+
+            -- Active Subs
+            (
+                SELECT COUNT(*)
+                FROM subscriptions s
+                WHERE s.tenant_id = $1
+                  AND s.status = 'active'
+            ) AS active_subscriptions,
+
+            -- Total Subs
+            (
+                SELECT COUNT(*)
+                FROM subscriptions s
+                WHERE s.tenant_id = $1
+            ) AS total_subscriptions,
+
+            -- Open Disputes
+            (
+                SELECT COUNT(*)
+                FROM disputes d
+                WHERE d.tenant_id = $1
+                  AND COALESCE(d.status,'') NOT IN ('won','lost')
+            ) AS open_disputes,
+
+            -- Total Refunds
+            (
+                SELECT COUNT(*)
+                FROM refunds r
+                WHERE r.tenant_id = $1
+            ) AS total_refunds,
+
+            -- Invoices
+            (
+                SELECT COUNT(*)
+                FROM invoices i
+                WHERE i.tenant_id = $1
+            ) AS total_invoices
+
+        FROM payments p
+        WHERE p.tenant_id = $1
+        `,
+        [tenantId]
+    );
+
+    const raw = rows[0];
+    const toNum = (v) => Number(v ?? 0);
+
+    const stats = {
+        total_revenue:              toNum(raw.total_revenue),
+        total_refunded:             toNum(raw.total_refunded),
+        total_disputed_amount:      toNum(raw.total_disputed_amount),
+
+        amount_saved_from_disputes: toNum(raw.amount_saved_from_disputes),
+        amount_lost_from_disputes:  toNum(raw.amount_lost_from_disputes),
+
+        successful_payments:        toNum(raw.successful_payments),
+        failed_payments:            toNum(raw.failed_payments),
+
+        total_customers:            toNum(raw.total_customers),
+
+        active_subscriptions:       toNum(raw.active_subscriptions),
+        total_subscriptions:        toNum(raw.total_subscriptions),
+
+        open_disputes:              toNum(raw.open_disputes),
+
+        total_refunds:              toNum(raw.total_refunds),
+        total_invoices:             toNum(raw.total_invoices),
+    };
+
+    stats.net_revenue =
+        stats.total_revenue -
+        stats.total_refunded -
+        stats.amount_lost_from_disputes;
+
+    stats.payment_success_rate =
+        stats.successful_payments + stats.failed_payments > 0
+            ? Number(
+                  (
+                      (stats.successful_payments /
+                          (stats.successful_payments +
+                              stats.failed_payments)) *
+                      100
+                  ).toFixed(2)
+              )
+            : 0;
+
+    return stats;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. CHARGEBACK STATS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -475,6 +619,7 @@ const getRevenueChartData = async (tenantId, days = 30) => {
 
 module.exports = {
     getOverviewStats,
+    getNewOverviewStats,
     getChargebackStats,
     getRefundStats,
     getDisputeList,
