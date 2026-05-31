@@ -13,11 +13,14 @@ const app = express();
 
 app.use(cors({
   origin: [
+    'http://localhost:3000',  // ← 3000 karo
     'http://localhost:3001',
     'https://disputo.vercel.app'
   ],
   credentials: true
 }));
+
+
 app.use(morgan('combined'));
 
 // ✅ Webhook pehle — express.raw() route ke andar already hai
