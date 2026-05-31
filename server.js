@@ -12,10 +12,11 @@ const dashboardRouter = require('./src/routes/dashboard.routes');
 const app = express();
 
 app.use(cors({
-    origin: [
+  origin: [
     'http://localhost:3001',
     'https://disputo.vercel.app'
-  ]
+  ],
+  credentials: true
 }));
 app.use(morgan('combined'));
 
